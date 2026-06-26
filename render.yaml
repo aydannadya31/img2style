@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: img2style
+    env: docker
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/status
+    envVars:
+      - key: BFL_API_KEY
+        sync: false
+      - key: PORT
+        value: 10000
