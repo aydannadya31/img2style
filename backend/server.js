@@ -6,27 +6,40 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const { BFLProvider } = require('./providers/bfl-provider');
+const { HFProvider } = require('./providers/hf-provider');
+const { AgnesBridge } = require('./providers/agnes-bridge');
+const { MuapiBridge } = require('./providers/muapi-bridge');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const isServerless = process.env.VERCEL === '1';
+const DATA_DIR = isServerless ? '/tmp/image-to-video' : __dirname;
+
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/results', express.static(path.join(__dirname, 'results')));
-app.use(express.static(path.join(__dirname, '..', 'frontend')));
+app.use('/uploads', express.static(path.join(DATA_DIR, 'uploads')));
+app.use('/results', express.static(path.join(DATA_DIR, 'results')));
 
-['uploads', 'results'].forEach(dir => {
-  const p = path.join(__dirname, dir);
-  if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
-});
+const frontendDir = path.join(__dirname, '..', 'frontend');
+if (fs.existsSync(frontendDir)) {
+  app.use(express.static(frontendDir));
+}
+
+try {
+  ['uploads', 'results'].forEach(dir => {
+    const p = path.join(DATA_DIR, dir);
+    if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+  });
+} catch (e) {
+  console.warn('[Server] Could not create data dirs:', e.message);
+}
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, 'uploads')),
+  destination: (req, file, cb) => cb(null, path.join(DATA_DIR, 'uploads')),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    cb(null, uuidv4() + ext);
+    cb(null, `${uuidv4()}${ext}`);
   }
 });
 const upload = multer({
@@ -41,91 +54,190 @@ const upload = multer({
   }
 });
 
-let bflProvider = null;
-function initBFLProvider(apiKey) {
+const providers = [];
+const providerLabels = {};
+
+function initHFProvider(apiKey) {
   if (apiKey) {
-    bflProvider = new BFLProvider(apiKey);
-    console.log('BFL API ready');
+    providers.push({ name: 'hf', label: 'HuggingFace SVD', handler: new HFProvider(apiKey) });
+    providerLabels.hf = 'HuggingFace SVD';
+    console.log('[Server] HF API Provider ready');
     return true;
   }
-  bflProvider = null;
-  console.log('BFL API key not set');
+  console.log('[Server] HF Token not set');
   return false;
 }
-initBFLProvider(process.env.BFL_API_KEY);
+
+function initAgnesProvider(apiKey) {
+  if (apiKey) {
+    providers.push({ name: 'agnes', label: 'Agnes AI', handler: new AgnesBridge(apiKey) });
+    providerLabels.agnes = 'Agnes AI';
+    console.log('[Server] Agnes AI Provider ready');
+    return true;
+  }
+  console.log('[Server] Agnes API Key not set');
+  return false;
+}
+
+function initMuapiProvider(apiKey) {
+  if (apiKey) {
+    providers.push({ name: 'muapi', label: 'HappyHorse', handler: new MuapiBridge(apiKey) });
+    providerLabels.muapi = 'HappyHorse';
+    console.log('[Server] Muapi/HappyHorse Provider ready');
+    return true;
+  }
+  console.log('[Server] Muapi API Key not set');
+  return false;
+}
+
+initHFProvider(process.env.HF_TOKEN);
+initAgnesProvider(process.env.AGNES_API_KEY);
+initMuapiProvider(process.env.MUAPI_API_KEY);
 
 const jobs = new Map();
 
-app.post('/api/generate', upload.fields([
-  { name: 'modelImage', maxCount: 1 },
-  { name: 'clothImage', maxCount: 1 }
-]), async (req, res) => {
+app.post('/api/generate', upload.single('image'), async (req, res) => {
   try {
-    if (!req.files || !req.files.modelImage || !req.files.modelImage[0]) {
-      return res.status(400).json({ error: 'Model fotografi gerekli' });
-    }
-    if (!req.files || !req.files.clothImage || !req.files.clothImage[0]) {
-      return res.status(400).json({ error: 'Kiyafet fotografi gerekli' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'Lutfen bir gorsel yukleyin.' });
     }
 
-    const modelPath = req.files.modelImage[0].path;
-    const clothPath = req.files.clothImage[0].path;
+    const imagePath = req.file.path;
     const jobId = uuidv4();
 
-    const job = { id: jobId, status: 'queued', progress: 0, createdAt: new Date().toISOString(), resultUrl: null, error: null };
+    const job = {
+      id: jobId,
+      status: 'queued',
+      progress: 0,
+      createdAt: new Date().toISOString(),
+      resultUrl: null,
+      error: null,
+      provider: null,
+      providerLabel: null,
+      errors: []
+    };
     jobs.set(jobId, job);
     res.json({ jobId, status: 'queued' });
 
-    if (!bflProvider) {
+    if (providers.length === 0) {
       const j = jobs.get(jobId);
-      if (j) { j.status = 'failed'; j.error = 'BFL API Key ayarlanmamis'; }
+      if (j) {
+        j.status = 'failed';
+        j.error = 'Hicbir saglayici yapilandirilmamis. Ayarlardan API key girin.';
+      }
       return;
     }
 
-    await bflProvider.generate(jobId, modelPath, clothPath, {
-      onProgress: (p) => { const j = jobs.get(jobId); if (j) j.progress = p; },
-      onComplete: (resultPath) => {
-        const j = jobs.get(jobId);
-        if (j) { j.status = 'completed'; j.progress = 100; j.resultUrl = '/results/' + path.basename(resultPath); console.log('Job ' + jobId + ' ok'); }
-      },
-      onError: (error) => { const j = jobs.get(jobId); if (j) { j.status = 'failed'; j.error = error.message; } }
-    });
+    let lastError = null;
+    for (const provider of providers) {
+      const j = jobs.get(jobId);
+      if (!j) return;
 
+      j.provider = provider.name;
+      j.providerLabel = provider.label;
+      j.status = 'processing';
+      j.progress = 0;
+
+      console.log(`[Server] Trying provider: ${provider.label}`);
+
+      try {
+        await new Promise((resolve, reject) => {
+          provider.handler.generate(jobId, imagePath, {
+            onProgress: (progress) => {
+              const jj = jobs.get(jobId);
+              if (jj) jj.progress = progress;
+            },
+            onComplete: (resultPath) => {
+              const jj = jobs.get(jobId);
+              if (jj) {
+                jj.status = 'completed';
+                jj.progress = 100;
+                jj.resultUrl = `/results/${path.basename(resultPath)}`;
+                console.log(`[Server] Job ${jobId} completed via ${provider.label}`);
+              }
+              resolve();
+            },
+            onError: (error) => {
+              reject(error);
+            }
+          });
+        });
+        return;
+      } catch (err) {
+        lastError = err;
+        const jj = jobs.get(jobId);
+        if (jj) {
+          jj.errors.push(`${provider.name}: ${err.message}`);
+        }
+        console.log(`[Server] ${provider.label} failed, trying next...`);
+      }
+    }
+
+    const j = jobs.get(jobId);
+    if (j) {
+      j.status = 'failed';
+      j.error = lastError?.message || 'Tum saglayicilar basarisiz';
+    }
   } catch (error) {
     console.error('Generate error:', error);
-    if (!res.headersSent) res.status(500).json({ error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
   }
+});
+
+app.post('/api/set-key', (req, res) => {
+  const { provider, apiKey } = req.body;
+  if (!provider || !apiKey) {
+    return res.status(400).json({ error: 'Provider adi ve API key gerekli' });
+  }
+  let enabled = false;
+  if (provider === 'hf') enabled = initHFProvider(apiKey);
+  else if (provider === 'agnes') enabled = initAgnesProvider(apiKey);
+  else if (provider === 'muapi') enabled = initMuapiProvider(apiKey);
+  res.json({ success: true, provider, enabled: !!enabled });
 });
 
 app.get('/api/status/:jobId', (req, res) => {
   const job = jobs.get(req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found' });
-  res.json({ id: job.id, status: job.status, progress: job.progress, resultUrl: job.resultUrl, error: job.error, createdAt: job.createdAt });
+  res.json({
+    id: job.id,
+    status: job.status,
+    progress: job.progress,
+    resultUrl: job.resultUrl,
+    error: job.error,
+    provider: job.provider,
+    providerLabel: job.providerLabel,
+    errors: job.errors,
+    createdAt: job.createdAt
+  });
 });
 
 app.get('/api/status', (req, res) => {
-  res.json({ bflEnabled: !!bflProvider, uptime: process.uptime() });
+  res.json({
+    providers: providers.map(p => ({ name: p.name, label: p.label, enabled: true })),
+    uptime: process.uptime()
+  });
+});
+
+app.get('/api/providers', (req, res) => {
+  const providerStatus = [
+    { name: 'hf', label: 'HuggingFace SVD', enabled: providers.some(p => p.name === 'hf'), available: !!process.env.HF_TOKEN },
+    { name: 'agnes', label: 'Agnes AI', enabled: providers.some(p => p.name === 'agnes'), available: !!process.env.AGNES_API_KEY },
+    { name: 'muapi', label: 'HappyHorse', enabled: providers.some(p => p.name === 'muapi'), available: !!process.env.MUAPI_API_KEY }
+  ];
+  res.json({ providers: providerStatus });
 });
 
 app.get('/api/samples', (req, res) => {
   res.json({
-    models: [
-      { url: 'https://a2e-prod-jumpy.makefun.ai/stable/sample/virtualTryOn/m1.jpg', name: 'Model 1' },
-      { url: 'https://a2e-prod-jumpy.makefun.ai/stable/sample/virtualTryOn/m2.jpg', name: 'Model 2' },
-      { url: 'https://a2e-prod-jumpy.makefun.ai/stable/sample/virtualTryOn/m3.jpg', name: 'Model 3' }
-    ],
-    clothes: [
-      { url: 'https://a2e-prod-jumpy.makefun.ai/stable/sample/virtualTryOn/t-shirt.png', name: 'Tisort' },
-      { url: 'https://a2e-prod-jumpy.makefun.ai/stable/sample/virtualTryOn/dress.png', name: 'Elbise' }
+    scenes: [
+      { url: 'https://a2e-prod-jumpy.makefun.ai/stable/sample/virtualTryOn/m1.jpg', name: 'Sahne 1' },
+      { url: 'https://a2e-prod-jumpy.makefun.ai/stable/sample/virtualTryOn/m2.jpg', name: 'Sahne 2' },
+      { url: 'https://a2e-prod-jumpy.makefun.ai/stable/sample/virtualTryOn/m3.jpg', name: 'Sahne 3' }
     ]
   });
-});
-
-app.post('/api/set-key', (req, res) => {
-  const { apiKey } = req.body;
-  if (!apiKey) return res.status(400).json({ error: 'API Key gerekli' });
-  const enabled = initBFLProvider(apiKey);
-  res.json({ success: true, enabled });
 });
 
 app.use((err, req, res, next) => {
@@ -133,7 +245,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  console.log('Img2Style API running on http://localhost:' + PORT);
-  console.log('BFL API: ' + (bflProvider ? 'READY' : 'NOKEY'));
-});
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('');
+    console.log(`Image to Video API running on http://localhost:${PORT}`);
+    console.log('');
+    console.log('Provider Chain:');
+    if (providers.length === 0) {
+      console.log('  !  No providers configured. Set API keys in .env');
+    }
+    providers.forEach(p => {
+      console.log(`  - ${p.label}`);
+    });
+    console.log('');
+  });
+}
