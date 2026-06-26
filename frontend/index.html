@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cloth Swap - AI Kıyafet Değiştir</title>
+  <title>Image to Video - AI Görselden Video</title>
   <link rel="stylesheet" href="css/styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
@@ -11,8 +11,11 @@
   <nav class="navbar">
     <div class="nav-inner">
       <div class="nav-left">
-        <a href="/" class="logo">Cloth Swap</a>
-        <span class="badge badge-free">FLUX VTO</span>
+        <a href="/" class="logo">
+          <span class="logo-icon">&#127916;</span>
+          <span>Image to Video</span>
+        </a>
+        <span class="badge badge-free">ÜCRETSİZ</span>
       </div>
       <div class="nav-right">
         <button class="settings-btn" id="settingsBtn" title="Ayarlar">
@@ -20,189 +23,136 @@
             <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
           </svg>
         </button>
-        <div class="connection-status" id="connectionStatus" title="Sunucu Durumu">
+        <button class="theme-btn" id="themeBtn" title="Tema Değiştir">
+          <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+          <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <div class="connection-status" id="connectionStatus">
           <span class="status-dot" id="statusDot"></span>
-        </div>
-        <div class="theme-toggle" id="themeToggle" title="Tema Değiştir">
-          <span id="themeIcon">🌙</span>
+          <span class="status-text" id="statusText">Bağlanıyor...</span>
         </div>
       </div>
     </div>
   </nav>
 
-  <div class="modal-overlay hidden" id="settingsModal">
+  <div class="container">
+    <div class="hero">
+      <div class="hero-badge">Hugging Face Stable Video Diffusion</div>
+      <h1>Görselden Video Oluşturun</h1>
+      <p class="hero-sub">
+        AI ile fotoğraflarınızı saniyeler içinde videoya dönüştürün.
+        <span class="free-badge">Tamamen Ücretsiz</span>
+      </p>
+    </div>
+
+    <div class="editor-card">
+      <div class="editor-grid">
+        <div class="input-section">
+          <div class="upload-area" id="uploadArea">
+            <div class="upload-placeholder" id="uploadPlaceholder">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="upload-icon">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21,15 16,10 5,21"/>
+              </svg>
+              <p>Görsel yüklemek için tıklayın</p>
+              <span class="upload-hint">PNG, JPG, WebP - max 20MB</span>
+            </div>
+            <img id="imagePreview" class="preview-image" style="display:none" alt="Preview">
+            <button class="change-image-btn" id="changeImageBtn" style="display:none">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Görsel Değiştir
+            </button>
+            <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp" style="display:none">
+            <div class="upload-progress" id="uploadProgress" style="display:none">
+              <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+              </div>
+              <span class="progress-text" id="progressText">İşleniyor...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="output-section">
+          <div class="video-container" id="videoContainer" style="display:none">
+            <video id="resultVideo" controls autoplay muted>
+              <p>Tarayıcınız video oynatmayı desteklemiyor.</p>
+            </video>
+            <div class="video-actions">
+              <a class="download-btn" id="downloadBtn" download>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                İndir
+              </a>
+            </div>
+          </div>
+          <div class="output-placeholder" id="outputPlaceholder">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+            <p>Video burada görünecek</p>
+          </div>
+          <div class="loading-spinner" id="loadingSpinner" style="display:none">
+            <div class="spinner"></div>
+            <p id="loadingText">Video oluşturuluyor...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button class="generate-btn" id="generateBtn" disabled>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span>Video Oluştur</span>
+        </button>
+        <p class="hint-text" id="generateHint">Önce bir görsel yükleyin</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>Ayarlar</h2>
-        <button class="modal-close" id="settingsClose">X</button>
+        <h3>Ayarlar</h3>
+        <button class="modal-close" id="modalClose">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
       <div class="modal-body">
-        <div class="setting-group">
-          <label class="setting-label" for="apiKeyInput">BFL API Key</label>
-          <p class="setting-desc">Black Forest Labs FLUX VTO API'sine erişmek için API key girin.</p>
-          <div class="api-input-wrapper">
-            <input type="password" id="apiKeyInput" class="api-input" placeholder="BFL API Key girin...">
-            <button class="api-save-btn" id="apiSaveBtn">Kaydet</button>
+        <div class="form-group">
+          <label for="hfTokenInput">Hugging Face Token</label>
+          <div class="input-with-btn">
+            <input type="password" id="hfTokenInput" placeholder="hf_...">
+            <button class="save-btn" id="saveKeyBtn">Kaydet</button>
           </div>
-          <div class="api-status" id="apiStatus"></div>
+          <p class="form-hint">
+            <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">Hugging Face</a>
+            hesabınızdan ücretsiz token alın.
+          </p>
         </div>
-        <div class="setting-info">
-          <p><strong>API Key nasıl alınır?</strong></p>
-          <ol>
-            <li><a href="https://docs.bfl.ai/" target="_blank">docs.bfl.ai</a> adresine gidin</li>
-            <li>Hesap oluşturun ve API key alın</li>
-            <li>Yukarıya yapıştırın ve kaydedin</li>
-          </ol>
+        <div class="token-status" id="tokenStatus">
+          <span class="status-indicator inactive"></span>
+          <span id="tokenStatusText">Token ayarlanmamış</span>
         </div>
       </div>
     </div>
   </div>
 
-  <main class="container">
-    <div class="page-header">
-      <h1>AI ile Kıyafet Değiştir</h1>
-      <p class="subtitle">FLUX VTO modeli ile fotoğraflardaki kıyafetleri değiştirin.</p>
-    </div>
-
-    <div class="upload-section dual">
-      <div class="upload-card">
-        <div class="upload-label">
-          <span>Model Fotoğrafı</span>
-          <span class="info-icon" title="Kıyafeti değiştirilecek kişinin fotoğrafı">i</span>
-        </div>
-        <div class="upload-zone" id="modelDropZone">
-          <div class="upload-placeholder" id="modelPlaceholder">
-            <div class="upload-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
-            </div>
-            <p>Fotoğrafı sürükleyin veya tıklayın</p>
-            <span class="upload-hint">jpg/png/webp, max 20MB</span>
-          </div>
-          <div class="upload-preview hidden" id="modelPreview">
-            <img id="modelPreviewImg" alt="Model preview">
-            <button class="remove-btn" id="modelRemove" title="Kaldir">X</button>
-          </div>
-        </div>
-        <input type="file" id="modelInput" accept="image/jpeg,image/png,image/webp" hidden>
-        <button class="sample-btn" id="modelSample">Örnek Model</button>
-      </div>
-
-      <div class="upload-card">
-        <div class="upload-label">
-          <span>Kiyafet Fotografi</span>
-          <span class="info-icon" title="Giydirilecek kiyafet fotografi">i</span>
-        </div>
-        <div class="upload-zone" id="clothDropZone">
-          <div class="upload-placeholder" id="clothPlaceholder">
-            <div class="upload-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
-            </div>
-            <p>Kiyafet fotografini surukleyin</p>
-            <span class="upload-hint">jpg/png/webp, max 20MB</span>
-          </div>
-          <div class="upload-preview hidden" id="clothPreview">
-            <img id="clothPreviewImg" alt="Cloth preview">
-            <button class="remove-btn" id="clothRemove" title="Kaldir">X</button>
-          </div>
-        </div>
-        <input type="file" id="clothInput" accept="image/jpeg,image/png,image/webp" hidden>
-        <button class="sample-btn" id="clothSample">Ornek Kiyafet</button>
-      </div>
-    </div>
-
-    <div class="generate-section">
-      <button class="generate-btn" id="generateBtn" disabled>
-        <span class="btn-icon"></span>
-        <span class="btn-text">Kiyafet Degistir</span>
-      </button>
-    </div>
-
-    <div class="progress-section hidden" id="progressSection">
-      <div class="progress-header">
-        <span class="progress-provider" id="progressProvider">FLUX VTO calisiyor...</span>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-      <p class="progress-text" id="progressText">Isleniyor...</p>
-    </div>
-
-    <div class="result-section hidden" id="resultSection">
-      <div class="result-header">
-        <h2>Sonuc Hazir!</h2>
-      </div>
-      <div class="result-grid three-col">
-        <div class="result-card">
-          <div class="result-label">Model</div>
-          <img id="resultModel" alt="Model">
-        </div>
-        <div class="result-card">
-          <div class="result-label">Kiyafet</div>
-          <img id="resultCloth" alt="Cloth">
-        </div>
-        <div class="result-card">
-          <div class="result-label">Sonuc</div>
-          <img id="resultImage" alt="Result">
-        </div>
-      </div>
-      <div class="result-actions">
-        <button class="download-btn" id="downloadBtn">Sonucu Indir</button>
-        <button class="try-again-btn" id="tryAgainBtn">Yeni Deneme</button>
-      </div>
-    </div>
-
-    <div class="tabs-section">
-      <div class="tabs">
-        <button class="tab active" data-tab="guide">Kullanim</button>
-        <button class="tab" data-tab="requirements">Gereksinimler</button>
-      </div>
-
-      <div class="tab-content active" id="tabGuide">
-        <h2>Nasil Calisir?</h2>
-        <ol class="steps">
-          <li><span class="step-num">1.</span> Model fotografini yukleyin</li>
-          <li><span class="step-num">2.</span> Kiyafet fotografini yukleyin</li>
-          <li><span class="step-num">3.</span> "Kiyafet Degistir" butonuna tiklayin</li>
-          <li><span class="step-num">4.</span> FLUX VTO sonucu olustursun!</li>
-        </ol>
-      </div>
-
-      <div class="tab-content" id="tabRequirements">
-        <h2>Gereksinimler</h2>
-        <div class="requirements-list">
-          <div class="req-item">
-            <div class="req-icon">K</div>
-            <div>
-              <strong>BFL API Key</strong>
-              <p>Ayarlar menusunden API key girin.</p>
-            </div>
-          </div>
-          <div class="req-item">
-            <div class="req-icon">I</div>
-            <div>
-              <strong>Kaliteli Fotograflar</strong>
-              <p>Net, iyi aydinlatilmis gorseller en iyi sonucu verir.</p>
-            </div>
-          </div>
-          <div class="req-item">
-            <div class="req-icon">N</div>
-            <div>
-              <strong>Internet Baglantisi</strong>
-              <p>BFL API'sine erisim icin aktif internet gerekir.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
+  <!-- Error Toast -->
+  <div class="toast" id="toast"></div>
 
   <script src="js/app.js"></script>
 </body>
