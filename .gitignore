@@ -1,0 +1,20 @@
+# Environment variables
+.env
+
+# Uploads & results
+backend/uploads/
+backend/results/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Session data
+.omo/
