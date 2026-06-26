@@ -1,339 +1,227 @@
-const state = {
-  imageFile: null,
-  imageDataUrl: null,
-  jobId: null,
-  polling: false,
-  providers: { hf: false, agnes: false, muapi: false }
-};
+const state = { modelFile: null, clothFile: null, jobId: null, polling: false };
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-const uploadArea = $('#uploadArea');
-const imageInput = $('#imageInput');
-const imagePreview = $('#imagePreview');
-const uploadPlaceholder = $('#uploadPlaceholder');
-const changeImageBtn = $('#changeImageBtn');
+const modelUpload = $('#modelUpload');
+const clothUpload = $('#clothUpload');
+const modelInput = $('#modelInput');
+const clothInput = $('#clothInput');
+const modelPreview = $('#modelPreview');
+const clothPreview = $('#clothPreview');
+const modelPlaceholder = $('#modelPlaceholder');
+const clothPlaceholder = $('#clothPlaceholder');
+const changeModelBtn = $('#changeModelBtn');
+const changeClothBtn = $('#changeClothBtn');
 const generateBtn = $('#generateBtn');
 const generateHint = $('#generateHint');
-const resultVideo = $('#resultVideo');
-const videoContainer = $('#videoContainer');
-const outputPlaceholder = $('#outputPlaceholder');
-const loadingSpinner = $('#loadingSpinner');
-const loadingText = $('#loadingText');
+const progressSection = $('#progressSection');
 const progressFill = $('#progressFill');
 const progressText = $('#progressText');
-const uploadProgress = $('#uploadProgress');
+const resultSection = $('#resultSection');
+const resultModel = $('#resultModel');
+const resultCloth = $('#resultCloth');
+const resultImage = $('#resultImage');
 const downloadBtn = $('#downloadBtn');
-const promptInput = $('#promptInput');
-const durationBtns = $$('.duration-btn');
-const settingsBtn = $('#settingsBtn');
-const settingsModal = $('#settingsModal');
-const modalClose = $('#modalClose');
-const saveKeysBtn = $('#saveKeysBtn');
-const themeBtn = $('#themeBtn');
 const statusDot = $('#statusDot');
 const statusText = $('#statusText');
 const toast = $('#toast');
-const providerBarInfo = $('#providerBarInfo');
+const settingsBtn = $('#settingsBtn');
+const settingsModal = $('#settingsModal');
+const modalClose = $('#modalClose');
+const apiKeyInput = $('#apiKeyInput');
+const saveKeyBtn = $('#saveKeyBtn');
+const modelSamples = $('#modelSamples');
+const clothSamples = $('#clothSamples');
 
-function providerDot(name) {
-  const el = document.getElementById(`pdot-${name}`);
-  if (el) return el;
-  const dummy = { className: '' };
-  dummy.classList = { add() {}, remove() {} };
-  return dummy;
+function showToast(msg, type) {
+  toast.textContent = msg;
+  toast.className = 'toast show ' + (type || '');
+  setTimeout(() => toast.className = 'toast', 3000);
 }
 
-function providerStatus(name) {
-  return document.getElementById(`pstatus-${name}`);
-}
-
-function providerInput(name) {
-  return document.getElementById(`key-${name}`);
-}
-
-uploadArea.addEventListener('click', (e) => {
-  if (e.target.closest('.change-image-btn')) return;
-  imageInput.click();
-});
-
-imageInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (file) handleImageFile(file);
-});
-
-uploadArea.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  uploadArea.classList.add('drag-over');
-});
-
-uploadArea.addEventListener('dragleave', () => {
-  uploadArea.classList.remove('drag-over');
-});
-
-uploadArea.addEventListener('drop', (e) => {
-  e.preventDefault();
-  uploadArea.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('image/')) handleImageFile(file);
-});
-
-function handleImageFile(file) {
-  state.imageFile = file;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    state.imageDataUrl = e.target.result;
-    imagePreview.src = e.target.result;
-    imagePreview.style.display = 'block';
-    uploadPlaceholder.style.display = 'none';
-    changeImageBtn.style.display = 'flex';
-    updateGenerateBtn();
-  };
-  reader.readAsDataURL(file);
-}
-
-changeImageBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  imageInput.click();
-});
-
-durationBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    durationBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-});
-
-generateBtn.addEventListener('click', generateVideo);
-
-async function generateVideo() {
-  if (!state.imageFile || generateBtn.disabled) return;
-
-  const formData = new FormData();
-  formData.append('image', state.imageFile);
-  formData.append('prompt', promptInput.value.trim());
-  const activeDuration = document.querySelector('.duration-btn.active');
-  formData.append('duration', activeDuration ? activeDuration.dataset.duration : '10');
-
-  generateBtn.disabled = true;
-  generateBtn.querySelector('span').textContent = 'Gönderiliyor...';
-  outputPlaceholder.style.display = 'none';
-  videoContainer.style.display = 'none';
-  loadingSpinner.style.display = 'flex';
-  loadingText.textContent = 'Video oluşturuluyor...';
-  uploadProgress.style.display = 'none';
-
+async function fetchStatus() {
   try {
-    const res = await fetch('/api/generate', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Sunucu hatası');
-    state.jobId = data.jobId;
-    startPolling();
-  } catch (err) {
-    showError(err.message);
-    resetGenerateBtn();
-    loadingSpinner.style.display = 'none';
-    outputPlaceholder.style.display = 'flex';
-  }
-}
-
-function startPolling() {
-  state.polling = true;
-  pollStatus();
-}
-
-async function pollStatus() {
-  if (!state.polling) return;
-  try {
-    const res = await fetch(`/api/status/${state.jobId}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Durum alınamadı');
-
-    // Show active provider
-    if (data.provider) {
-      const label = data.providerLabel || data.provider;
-      loadingText.textContent = `[${label}] Video oluşturuluyor... ${data.progress || 0}%`;
-      highlightChainProvider(data.provider, 'trying');
-    }
-
-    if (data.status === 'completed') {
-      state.polling = false;
-      loadingSpinner.style.display = 'none';
-      videoContainer.style.display = 'block';
-      resultVideo.src = data.resultUrl;
-      resultVideo.load();
-      downloadBtn.href = data.resultUrl;
-      highlightChainProvider(data.provider, 'success');
-      showToast(`✅ ${data.providerLabel || data.provider} ile oluşturuldu!`, 'success');
-      resetGenerateBtn();
-    } else if (data.status === 'failed') {
-      state.polling = false;
-      showError(data.error || 'Video oluşturulamadı');
-      loadingSpinner.style.display = 'none';
-      outputPlaceholder.style.display = 'flex';
-      resetGenerateBtn();
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    if (d.bflEnabled) {
+      statusDot.className = 'status-dot connected';
+      statusText.textContent = 'Bagli';
     } else {
-      loadingText.textContent = `Video oluşturuluyor... ${data.progress || 0}%`;
-      setTimeout(pollStatus, 2000);
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'API Key Yok';
     }
-  } catch (err) {
-    if (state.polling) {
-      setTimeout(pollStatus, 2000);
-    }
-  }
+  } catch { statusDot.className = 'status-dot'; statusText.textContent = 'Sunucu Yok'; }
 }
 
-function highlightChainProvider(name, mode) {
-  const items = $$('.pchain-item');
-  items.forEach(el => {
-    el.classList.remove('trying', 'success', 'failed');
-    if (el.dataset.provider === name) {
-      el.classList.add(mode);
+async function fetchSamples() {
+  try {
+    const r = await fetch('/api/samples');
+    const d = await r.json();
+    if (d.models) d.models.forEach(m => {
+      const btn = document.createElement('button');
+      btn.className = 'sample-btn';
+      btn.textContent = m.name;
+      btn.addEventListener('click', () => loadSample(m.url, 'model'));
+      modelSamples.appendChild(btn);
+    });
+    if (d.clothes) d.clothes.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'sample-btn';
+      btn.textContent = c.name;
+      btn.addEventListener('click', () => loadSample(c.url, 'cloth'));
+      clothSamples.appendChild(btn);
+    });
+  } catch {}
+}
+
+async function loadSample(url, type) {
+  try {
+    const r = await fetch(url);
+    const blob = await r.blob();
+    const file = new File([blob], type + '.' + blob.type.split('/')[1], { type: blob.type });
+    if (type === 'model') {
+      state.modelFile = file;
+      modelPreview.src = URL.createObjectURL(file);
+      modelPreview.style.display = 'block';
+      modelPlaceholder.style.display = 'none';
+      changeModelBtn.style.display = 'flex';
+    } else {
+      state.clothFile = file;
+      clothPreview.src = URL.createObjectURL(file);
+      clothPreview.style.display = 'block';
+      clothPlaceholder.style.display = 'none';
+      changeClothBtn.style.display = 'flex';
     }
+    updateGenerateBtn();
+  } catch { showToast('Ornek yuklenemedi', 'error'); }
+}
+
+function setupUpload(area, input, preview, placeholder, changeBtn, type) {
+  area.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (!file) return;
+    if (type === 'model') state.modelFile = file;
+    else state.clothFile = file;
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+    changeBtn.style.display = 'flex';
+    updateGenerateBtn();
+  });
+  changeBtn.addEventListener('click', (e) => { e.stopPropagation(); input.click(); });
+
+  area.addEventListener('dragover', (e) => { e.preventDefault(); area.classList.add('drag-over'); });
+  area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
+  area.addEventListener('drop', (e) => {
+    e.preventDefault();
+    area.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    if (type === 'model') state.modelFile = file;
+    else state.clothFile = file;
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+    changeBtn.style.display = 'flex';
+    updateGenerateBtn();
   });
 }
 
-function resetChain() {
-  $$('.pchain-item').forEach(el => el.classList.remove('trying', 'success', 'failed'));
-}
-
-function resetGenerateBtn() {
-  generateBtn.disabled = false;
-  generateBtn.querySelector('span').textContent = 'Video Oluştur';
-  uploadProgress.style.display = 'none';
-  updateGenerateBtn();
-}
+setupUpload(modelUpload, modelInput, modelPreview, modelPlaceholder, changeModelBtn, 'model');
+setupUpload(clothUpload, clothInput, clothPreview, clothPlaceholder, changeClothBtn, 'cloth');
 
 function updateGenerateBtn() {
-  const anyProvider = Object.values(state.providers).some(v => v);
-  const canGenerate = state.imageFile && anyProvider;
-  generateBtn.disabled = !canGenerate;
-  generateHint.textContent = !state.imageFile ? 'Önce bir görsel yükleyin' :
-    !anyProvider ? 'Ayarlardan API key girin' : 'Hazır';
+  if (state.modelFile && state.clothFile) {
+    generateBtn.disabled = false;
+    generateHint.textContent = 'Model ve kiyafet hazir';
+  } else {
+    generateBtn.disabled = true;
+    generateHint.textContent = 'Once model ve kiyafet yukleyin';
+  }
 }
 
-settingsBtn.addEventListener('click', () => openSettings());
-modalClose.addEventListener('click', closeSettings);
-settingsModal.addEventListener('click', (e) => {
-  if (e.target === settingsModal) closeSettings();
+generateBtn.addEventListener('click', async () => {
+  if (!state.modelFile || !state.clothFile) return;
+  const form = new FormData();
+  form.append('modelImage', state.modelFile);
+  form.append('clothImage', state.clothFile);
+  generateBtn.disabled = true;
+  generateBtn.querySelector('span').textContent = 'Basliyor...';
+  progressSection.style.display = 'block';
+  progressFill.style.width = '0%';
+  progressText.textContent = 'Yukleniyor...';
+  resultSection.style.display = 'none';
+  try {
+    const r = await fetch('/api/generate', { method: 'POST', body: form });
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'error'); resetGenerate(); return; }
+    state.jobId = d.jobId;
+    state.polling = true;
+    pollJob();
+  } catch (e) {
+    showToast('Baglanti hatasi', 'error');
+    resetGenerate();
+  }
 });
 
-function openSettings() {
-  settingsModal.classList.add('active');
-  ['hf', 'agnes', 'muapi'].forEach(name => {
-    const input = providerInput(name);
-    if (input) input.value = '';
-  });
-  const first = providerInput('hf');
-  if (first) first.focus();
-}
-
-function closeSettings() {
-  settingsModal.classList.remove('active');
-}
-
-saveKeysBtn.addEventListener('click', saveAllKeys);
-
-async function saveAllKeys() {
-  saveKeysBtn.disabled = true;
-  saveKeysBtn.textContent = 'Kaydediliyor...';
-
-  const providers = ['hf', 'agnes', 'muapi'];
-  let success = 0;
-
-  for (const name of providers) {
-    const input = providerInput(name);
-    if (!input) continue;
-    const key = input.value.trim();
-    if (!key) continue;
-
+async function pollJob() {
+  while (state.polling) {
     try {
-      const res = await fetch('/api/set-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: name, apiKey: key })
-      });
-      const data = await res.json();
-      if (data.enabled) {
-        state.providers[name] = true;
-        const ps = providerStatus(name);
-        if (ps) ps.textContent = '✅';
-        success++;
+      const r = await fetch('/api/status/' + state.jobId);
+      const d = await r.json();
+      progressFill.style.width = d.progress + '%';
+      if (d.status === 'completed') {
+        state.polling = false;
+        progressText.textContent = 'Tamam!';
+        setTimeout(() => {
+          progressSection.style.display = 'none';
+          showResult(d.resultUrl);
+        }, 500);
+        return;
+      } else if (d.status === 'failed') {
+        state.polling = false;
+        showToast(d.error || 'Hata olustu', 'error');
+        resetGenerate();
+        return;
       }
-    } catch (err) {
-      const ps = providerStatus(name);
-      if (ps) ps.textContent = '❌';
-    }
+      progressText.textContent = 'Isleniyor... %' + Math.round(d.progress);
+    } catch { showToast('Baglanti hatasi', 'error'); state.polling = false; resetGenerate(); return; }
+    await new Promise(r => setTimeout(r, 2000));
   }
-
-  await checkProviderStatus();
-  updateGenerateBtn();
-
-  saveKeysBtn.disabled = false;
-  saveKeysBtn.textContent = 'Tüm Key\'leri Kaydet';
-  showToast(`${success} key kaydedildi`, 'success');
-  if (success > 0) closeSettings();
 }
 
-themeBtn.addEventListener('click', toggleTheme);
-
-function toggleTheme() {
-  const html = document.documentElement;
-  const isDark = html.getAttribute('data-theme') === 'dark';
-  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
-  localStorage.setItem('theme', isDark ? 'light' : 'dark');
+function showResult(url) {
+  resultSection.style.display = 'block';
+  resultModel.src = modelPreview.src;
+  resultCloth.src = clothPreview.src;
+  resultImage.src = url;
+  downloadBtn.href = url;
+  resetGenerate();
 }
 
-async function checkProviderStatus() {
+function resetGenerate() {
+  generateBtn.disabled = false;
+  generateBtn.querySelector('span').textContent = 'Olustur';
+}
+
+// Settings
+settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
+modalClose.addEventListener('click', () => settingsModal.style.display = 'none');
+settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.style.display = 'none'; });
+
+saveKeyBtn.addEventListener('click', async () => {
+  const key = apiKeyInput.value.trim();
+  if (!key) { showToast('API Key girin', 'error'); return; }
   try {
-    const res = await fetch('/api/providers');
-    const data = await res.json();
+    const r = await fetch('/api/set-key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey: key }) });
+    const d = await r.json();
+    if (d.success) { showToast('API Key kaydedildi'); settingsModal.style.display = 'none'; fetchStatus(); }
+    else showToast('Hata', 'error');
+  } catch { showToast('Baglanti hatasi', 'error'); }
+});
 
-    let activeCount = 0;
-    data.providers.forEach(p => {
-      const enabled = p.enabled;
-      state.providers[p.name] = enabled;
-      if (enabled) activeCount++;
-
-      const dot = providerDot(p.name);
-      dot.className = `pchain-dot ${enabled ? 'active' : ''}`;
-
-      const ps = providerStatus(p.name);
-      if (ps) ps.textContent = enabled ? '✅' : '⏳';
-
-      const input = providerInput(p.name);
-      if (input) input.placeholder = enabled ? '✓ ayarlı' : (input.dataset.placeholder || input.placeholder);
-    });
-
-    statusDot.className = `status-dot ${activeCount > 0 ? 'active' : ''}`;
-    statusText.textContent = activeCount > 0 ? `${activeCount}/3 aktif` : 'Key gerekli';
-
-    const firstActive = data.providers.find(p => p.enabled);
-    providerBarInfo.textContent = firstActive
-      ? `✅ Öncelik: ${firstActive.label}`
-      : '⚙️ Ayarlardan API key girin';
-
-    updateGenerateBtn();
-  } catch (err) {
-    statusDot.className = 'status-dot';
-    statusText.textContent = 'Bağlantı yok';
-    providerBarInfo.textContent = '⚠️ Sunucuya bağlanılamadı';
-  }
-}
-
-function showToast(message, type = 'error') {
-  toast.textContent = message;
-  toast.className = `toast ${type} active`;
-  setTimeout(() => toast.classList.remove('active'), 4000);
-}
-
-function showError(message) {
-  showToast(message, 'error');
-}
-
-const savedTheme = localStorage.getItem('theme') || 'dark';
-document.documentElement.setAttribute('data-theme', savedTheme);
-
-checkProviderStatus();
-setInterval(checkProviderStatus, 30000);
+fetchStatus();
+fetchSamples();
+setInterval(fetchStatus, 15000);
