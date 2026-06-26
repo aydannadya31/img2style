@@ -3,26 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Image to Video - AI Görselden Video</title>
+  <title>Cloth Swap - AI Kıyafet Değiştir</title>
   <link rel="stylesheet" href="css/styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-  <!-- Navigation -->
   <nav class="navbar">
     <div class="nav-inner">
       <div class="nav-left">
-        <a href="/" class="logo">
-          <span class="logo-icon">🎬</span>
-          <span>Image to Video</span>
-        </a>
-        <span class="badge badge-free">ÜCRETSİZ</span>
+        <a href="/" class="logo">Cloth Swap</a>
+        <span class="badge badge-free">FLUX VTO</span>
       </div>
       <div class="nav-right">
         <button class="settings-btn" id="settingsBtn" title="Ayarlar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
           </svg>
         </button>
         <div class="connection-status" id="connectionStatus" title="Sunucu Durumu">
@@ -35,32 +30,27 @@
     </div>
   </nav>
 
-  <!-- Settings Modal -->
   <div class="modal-overlay hidden" id="settingsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>⚙️ Ayarlar</h2>
-        <button class="modal-close" id="settingsClose">✕</button>
+        <h2>Ayarlar</h2>
+        <button class="modal-close" id="settingsClose">X</button>
       </div>
       <div class="modal-body">
         <div class="setting-group">
-          <label class="setting-label" for="apiKeyInput">
-            Hugging Face Token
-            <a href="https://huggingface.co/settings/tokens" target="_blank" class="setting-link" title="Token al">📖</a>
-          </label>
-          <p class="setting-desc">Stable Video Diffusion modeline erişmek için HF Token girin. <strong>Tamamen ücretsiz</strong>.</p>
+          <label class="setting-label" for="apiKeyInput">BFL API Key</label>
+          <p class="setting-desc">Black Forest Labs FLUX VTO API'sine erişmek için API key girin.</p>
           <div class="api-input-wrapper">
-            <input type="password" id="apiKeyInput" class="api-input" placeholder="hf_... token girin">
+            <input type="password" id="apiKeyInput" class="api-input" placeholder="BFL API Key girin...">
             <button class="api-save-btn" id="apiSaveBtn">Kaydet</button>
           </div>
           <div class="api-status" id="apiStatus"></div>
         </div>
         <div class="setting-info">
-          <p>💡 <strong>HF Token nereden alınır?</strong></p>
+          <p><strong>API Key nasıl alınır?</strong></p>
           <ol>
-            <li><a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a></li>
-            <li>Hesap oluşturun veya giriş yapın</li>
-            <li>"Create new token" → "Read" yetkisiyle oluşturun</li>
+            <li><a href="https://docs.bfl.ai/" target="_blank">docs.bfl.ai</a> adresine gidin</li>
+            <li>Hesap oluşturun ve API key alın</li>
             <li>Yukarıya yapıştırın ve kaydedin</li>
           </ol>
         </div>
@@ -68,215 +58,146 @@
     </div>
   </div>
 
-  <!-- Main Content -->
   <main class="container">
-    <!-- Header -->
     <div class="page-header">
-      <div class="header-badge">
-        <span class="badge-lg gradient">✨ STABLE VIDEO DIFFUSION</span>
-      </div>
-      <h1>Görselden Video Oluştur</h1>
-      <p class="subtitle">Yüklediğiniz tek bir fotoğrafı, yapay zeka ile kısa bir videoya dönüştürün. Saniyeler içinde sonuç alın.</p>
+      <h1>AI ile Kıyafet Değiştir</h1>
+      <p class="subtitle">FLUX VTO modeli ile fotoğraflardaki kıyafetleri değiştirin.</p>
     </div>
 
-    <!-- Provider Chain -->
-    <div class="provider-chain">
-      <span class="chain-label">🔗 Sağlayıcı:</span>
-      <div class="chain-list">
-        <div class="chain-item active" id="hfChain">
-          <span class="chain-num">1</span>
-          <span class="chain-name">Hugging Face SVD</span>
-          <span class="chain-badge free">ücretsiz</span>
-        </div>
-        <span class="chain-arrow">→</span>
-        <div class="chain-item" id="fallbackChain">
-          <span class="chain-num">2</span>
-          <span class="chain-name">A2E API (Yedek)</span>
-          <span class="chain-badge free">ücretsiz</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Upload Section -->
-    <div class="upload-section single">
+    <div class="upload-section dual">
       <div class="upload-card">
         <div class="upload-label">
-          <span>📷 Kaynak Görsel</span>
+          <span>Model Fotoğrafı</span>
+          <span class="info-icon" title="Kıyafeti değiştirilecek kişinin fotoğrafı">i</span>
         </div>
-        <div class="upload-zone" id="imageDropZone">
-          <div class="upload-placeholder" id="imagePlaceholder">
+        <div class="upload-zone" id="modelDropZone">
+          <div class="upload-placeholder" id="modelPlaceholder">
             <div class="upload-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                 <circle cx="8.5" cy="8.5" r="1.5"/>
                 <polyline points="21 15 16 10 5 21"/>
               </svg>
             </div>
             <p>Fotoğrafı sürükleyin veya tıklayın</p>
-            <span class="upload-hint">Format: jpg/png/webp, max 20MB</span>
+            <span class="upload-hint">jpg/png/webp, max 20MB</span>
           </div>
-          <div class="upload-preview hidden" id="imagePreview">
-            <img id="imagePreviewImg" alt="Source image">
-            <button class="remove-btn" id="imageRemove" title="Kaldır">✕</button>
+          <div class="upload-preview hidden" id="modelPreview">
+            <img id="modelPreviewImg" alt="Model preview">
+            <button class="remove-btn" id="modelRemove" title="Kaldir">X</button>
           </div>
         </div>
-        <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp" hidden>
+        <input type="file" id="modelInput" accept="image/jpeg,image/png,image/webp" hidden>
+        <button class="sample-btn" id="modelSample">Örnek Model</button>
+      </div>
+
+      <div class="upload-card">
+        <div class="upload-label">
+          <span>Kiyafet Fotografi</span>
+          <span class="info-icon" title="Giydirilecek kiyafet fotografi">i</span>
+        </div>
+        <div class="upload-zone" id="clothDropZone">
+          <div class="upload-placeholder" id="clothPlaceholder">
+            <div class="upload-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </div>
+            <p>Kiyafet fotografini surukleyin</p>
+            <span class="upload-hint">jpg/png/webp, max 20MB</span>
+          </div>
+          <div class="upload-preview hidden" id="clothPreview">
+            <img id="clothPreviewImg" alt="Cloth preview">
+            <button class="remove-btn" id="clothRemove" title="Kaldir">X</button>
+          </div>
+        </div>
+        <input type="file" id="clothInput" accept="image/jpeg,image/png,image/webp" hidden>
+        <button class="sample-btn" id="clothSample">Ornek Kiyafet</button>
       </div>
     </div>
 
-    <!-- Prompt Section -->
-    <div class="prompt-section">
-      <label class="prompt-label" for="promptInput">
-        ✍️ Video Açıklaması <span class="info-icon" title="İsteğe bağlı: videoda nasıl bir hareket olmasını istediğinizi yazın">ⓘ</span>
-      </label>
-      <div class="prompt-input-wrapper">
-        <textarea id="promptInput" class="prompt-input" placeholder="Örn: sakin bir şekilde akan su, dalgalanan bayrak, bulutların hareketi..." rows="2" maxlength="500"></textarea>
-        <span class="prompt-counter" id="promptCounter">0/500</span>
-      </div>
-      <div class="prompt-suggestions">
-        <button class="suggestion-chip" data-prompt="sakin akan su, doğal akış">🌊 Akan Su</button>
-        <button class="suggestion-chip" data-prompt="rüzgarda hafifçe dalgalanan bayrak">🚩 Dalgalanan Bayrak</button>
-        <button class="suggestion-chip" data-prompt="gökyüzünde süzülen bulutlar">☁️ Bulutlar</button>
-        <button class="suggestion-chip" data-prompt="yavaş çekimde dans eden ışıklar">✨ Işık Dansı</button>
-        <button class="suggestion-chip" data-prompt="kameraya yaklaşan zoom efekti">🎯 Zoom Efekti</button>
-      </div>
-    </div>
-
-    <!-- Model Select -->
-    <div class="model-section">
-      <label class="model-label">🎯 Model</label>
-      <div class="model-select-group">
-        <button class="model-btn active" data-model="svd">
-          <span class="model-name">SVD v1.1</span>
-          <span class="model-desc">Stable Video Diffusion — 14 kare, hızlı</span>
-        </button>
-        <button class="model-btn disabled" data-model="wan" disabled title="Çok yakında">
-          <span class="model-name">Wan 2.1</span>
-          <span class="model-desc">Gelişmiş model — yakında</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Generate Button -->
     <div class="generate-section">
       <button class="generate-btn" id="generateBtn" disabled>
-        <span class="btn-icon">🎬</span>
-        <span class="btn-text">Video Oluştur</span>
+        <span class="btn-icon"></span>
+        <span class="btn-text">Kiyafet Degistir</span>
       </button>
-      <p class="generate-hint" id="generateHint">Görsel yükleyerek başlayın</p>
     </div>
 
-    <!-- Progress -->
     <div class="progress-section hidden" id="progressSection">
       <div class="progress-header">
-        <span class="progress-provider" id="progressProvider">Stable Video Diffusion çalışıyor...</span>
-        <span class="progress-elapsed" id="progressElapsed">00:00</span>
+        <span class="progress-provider" id="progressProvider">FLUX VTO calisiyor...</span>
       </div>
       <div class="progress-bar">
         <div class="progress-fill" id="progressFill"></div>
       </div>
-      <p class="progress-text" id="progressText">Sıraya alındı...</p>
-      <div class="progress-eta" id="progressEta">Bu işlem ~25 saniye sürebilir</div>
+      <p class="progress-text" id="progressText">Isleniyor...</p>
     </div>
 
-    <!-- Result Section -->
     <div class="result-section hidden" id="resultSection">
       <div class="result-header">
-        <h2>✅ Video Hazır!</h2>
-        <span class="result-provider-badge" id="resultBadge">Hugging Face SVD</span>
+        <h2>Sonuc Hazir!</h2>
       </div>
-      <div class="result-comparison">
-        <div class="result-card card-source">
-          <div class="result-label">📷 Kaynak Görsel</div>
-          <img id="resultSource" alt="Source">
+      <div class="result-grid three-col">
+        <div class="result-card">
+          <div class="result-label">Model</div>
+          <img id="resultModel" alt="Model">
         </div>
-        <div class="result-card card-video">
-          <div class="result-label">🎬 Oluşan Video</div>
-          <div class="video-wrapper">
-            <video id="resultVideo" controls autoplay loop muted playsinline></video>
-          </div>
+        <div class="result-card">
+          <div class="result-label">Kiyafet</div>
+          <img id="resultCloth" alt="Cloth">
+        </div>
+        <div class="result-card">
+          <div class="result-label">Sonuc</div>
+          <img id="resultImage" alt="Result">
         </div>
       </div>
       <div class="result-actions">
-        <button class="download-btn" id="downloadBtn">⬇️ Videoyu İndir</button>
-        <button class="try-again-btn" id="tryAgainBtn">🔄 Yeni Görsel Dene</button>
+        <button class="download-btn" id="downloadBtn">Sonucu Indir</button>
+        <button class="try-again-btn" id="tryAgainBtn">Yeni Deneme</button>
       </div>
     </div>
 
-    <!-- Error display area -->
-    <div id="errorContainer"></div>
-
-    <!-- Tabs -->
     <div class="tabs-section">
       <div class="tabs">
-        <button class="tab active" data-tab="guide">📖 Nasıl Çalışır</button>
-        <button class="tab" data-tab="providers">🔗 Sağlayıcılar</button>
-        <button class="tab" data-tab="faq">❓ SSS</button>
+        <button class="tab active" data-tab="guide">Kullanim</button>
+        <button class="tab" data-tab="requirements">Gereksinimler</button>
       </div>
 
-      <!-- Guide Tab -->
       <div class="tab-content active" id="tabGuide">
-        <h2>Adım Adım Kullanım</h2>
+        <h2>Nasil Calisir?</h2>
         <ol class="steps">
-          <li><span class="step-num">1.</span> Video haline getirmek istediğiniz fotoğrafı yükleyin</li>
-          <li><span class="step-num">2.</span> İsteğe bağlı video açıklaması girin (örn. akan su, dalgalanan bayrak)</li>
-          <li><span class="step-num">3.</span> "Video Oluştur" butonuna tıklayın</li>
-          <li><span class="step-num">4.</span> Stable Video Diffusion videonuzu oluştursun! 🎉</li>
+          <li><span class="step-num">1.</span> Model fotografini yukleyin</li>
+          <li><span class="step-num">2.</span> Kiyafet fotografini yukleyin</li>
+          <li><span class="step-num">3.</span> "Kiyafet Degistir" butonuna tiklayin</li>
+          <li><span class="step-num">4.</span> FLUX VTO sonucu olustursun!</li>
         </ol>
-        <div class="tip-box">
-          <strong>💡 İpucu:</strong> Net, iyi aydınlatılmış ve yüksek çözünürlüklü fotoğraflar en iyi sonucu verir. Özellikle doğa manzaraları, portreler ve mimari fotoğraflar etkileyici videolara dönüşür.
-        </div>
       </div>
 
-      <!-- Providers Tab -->
-      <div class="tab-content" id="tabProviders">
-        <h2>Sağlayıcı Zinciri</h2>
-        <p class="tab-subtitle">Sistem önce ücretsiz HF Inference API'yi dener, başarısız olursa yedek API'ye geçer.</p>
-        <div class="provider-list">
-          <div class="provider-card">
-            <div class="provider-card-header">
-              <span class="provider-card-num">1</span>
-              <span class="provider-card-name">Hugging Face SVD</span>
-              <span class="provider-card-badge free">ücretsiz</span>
+      <div class="tab-content" id="tabRequirements">
+        <h2>Gereksinimler</h2>
+        <div class="requirements-list">
+          <div class="req-item">
+            <div class="req-icon">K</div>
+            <div>
+              <strong>BFL API Key</strong>
+              <p>Ayarlar menusunden API key girin.</p>
             </div>
-            <p class="provider-card-desc">Stability AI'in Stable Video Diffusion modeli. Hugging Face'in ücretsiz Inference API'si üzerinden çalışır. 14 kare, 576×1024 çözünürlük.</p>
-            <span class="provider-card-status ready">✅ Hazır</span>
           </div>
-          <div class="provider-card">
-            <div class="provider-card-header">
-              <span class="provider-card-num">2</span>
-              <span class="provider-card-name">A2E API (Yedek)</span>
-              <span class="provider-card-badge free">ücretsiz</span>
+          <div class="req-item">
+            <div class="req-icon">I</div>
+            <div>
+              <strong>Kaliteli Fotograflar</strong>
+              <p>Net, iyi aydinlatilmis gorseller en iyi sonucu verir.</p>
             </div>
-            <p class="provider-card-desc">video.a2e.ai üzerinden ücretsiz API kredileri. Günlük 30 kredi limiti.</p>
-            <span class="provider-card-status pending">⏸️ Yedek</span>
           </div>
-        </div>
-      </div>
-
-      <!-- FAQ Tab -->
-      <div class="tab-content" id="tabFaq">
-        <h2>Sık Sorulan Sorular</h2>
-        <div class="faq-list">
-          <div class="faq-item">
-            <div class="faq-question">Ne kadar sürede video oluşur?</div>
-            <div class="faq-answer">Genellikle 20-30 saniye içinde sonuç alırsınız. Modelin ilk yüklenmesi biraz daha uzun sürebilir.</div>
-          </div>
-          <div class="faq-item">
-            <div class="faq-question">Hangi çözünürlükte video alırım?</div>
-            <div class="faq-answer">Stable Video Diffusion 576×1024 piksel çözünürlükte, 14 kare (yaklaşık 2 saniye) video üretir.</div>
-          </div>
-          <div class="faq-item">
-            <div class="faq-question">Kaç video oluşturabilirim?</div>
-            <div class="faq-answer">HF Token ile günde yaklaşık 30-60 video ücretsiz. Hiçbir kredi veya ücret gerekmez.</div>
-          </div>
-          <div class="faq-item">
-            <div class="faq-question">Hangi görseller daha iyi sonuç verir?</div>
-            <div class="faq-answer">Net, iyi ışıklandırılmış, yüksek kontrastlı görseller. Doğa, portre ve mimari fotoğrafları önerilir.</div>
-          </div>
-          <div class="faq-item">
-            <div class="faq-question">HF Token güvenli mi?</div>
-            <div class="faq-answer">Token'ınız sadece bu uygulamada kullanılır, hiçbir yere kaydedilmez veya paylaşılmaz.</div>
+          <div class="req-item">
+            <div class="req-icon">N</div>
+            <div>
+              <strong>Internet Baglantisi</strong>
+              <p>BFL API'sine erisim icin aktif internet gerekir.</p>
+            </div>
           </div>
         </div>
       </div>
