@@ -108,6 +108,28 @@
         </div>
       </div>
 
+      <div class="control-section">
+        <div class="control-group">
+          <label class="control-label" for="promptInput">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Video Betimi (Prompt)
+          </label>
+          <textarea class="prompt-input" id="promptInput" placeholder="Gorselde ne olmasini istiyorsun? Orn: &quot;Kopek yavasca kuyrugunu salliyor, arkada bulutlar hareket ediyor&quot;" rows="2" disabled></textarea>
+        </div>
+        <div class="control-group">
+          <label class="control-label">Video Suresi</label>
+          <div class="duration-options" id="durationOptions">
+            <button class="duration-btn" data-duration="5">5s</button>
+            <button class="duration-btn active" data-duration="10">10s</button>
+            <button class="duration-btn" data-duration="15">15s</button>
+            <button class="duration-btn" data-duration="20">20s</button>
+          </div>
+        </div>
+      </div>
+
       <div class="action-bar">
         <button class="generate-btn" id="generateBtn" disabled>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
@@ -115,7 +137,7 @@
           </svg>
           <span>Video Oluştur</span>
         </button>
-        <p class="hint-text" id="generateHint">Önce bir görsel yükleyin</p>
+        <p class="hint-text" id="generateHint">Once bir gorsel yukleyin</p>
       </div>
     </div>
   </div>

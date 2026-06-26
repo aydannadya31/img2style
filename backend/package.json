@@ -1,7 +1,7 @@
 {
-  "name": "image-to-video",
-  "version": "2.0.0",
-  "description": "Image-to-Video API - Hugging Face Inference API (Stable Video Diffusion)",
+  "name": "img2style",
+  "version": "1.0.0",
+  "description": "Cloth Swap / Virtual Try-On with BFL FLUX VTO API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

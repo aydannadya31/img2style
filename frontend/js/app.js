@@ -25,6 +25,8 @@ const progressFill = $('#progressFill');
 const progressText = $('#progressText');
 const uploadProgress = $('#uploadProgress');
 const downloadBtn = $('#downloadBtn');
+const promptInput = $('#promptInput');
+const durationBtns = $$('.duration-btn');
 const settingsBtn = $('#settingsBtn');
 const settingsModal = $('#settingsModal');
 const modalClose = $('#modalClose');
@@ -96,6 +98,13 @@ changeImageBtn.addEventListener('click', (e) => {
   imageInput.click();
 });
 
+durationBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    durationBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
 generateBtn.addEventListener('click', generateVideo);
 
 async function generateVideo() {
@@ -103,6 +112,9 @@ async function generateVideo() {
 
   const formData = new FormData();
   formData.append('image', state.imageFile);
+  formData.append('prompt', promptInput.value.trim());
+  const activeDuration = document.querySelector('.duration-btn.active');
+  formData.append('duration', activeDuration ? activeDuration.dataset.duration : '10');
 
   generateBtn.disabled = true;
   generateBtn.querySelector('span').textContent = 'Gönderiliyor...';
