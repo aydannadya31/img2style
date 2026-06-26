@@ -11,10 +11,14 @@ const { HFProvider } = require('./providers/hf-provider');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Use /tmp/ for writable dirs on serverless (Vercel), local dir otherwise
+const isServerless = process.env.VERCEL === '1';
+const DATA_DIR = isServerless ? '/tmp/image-to-video' : __dirname;
+
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/results', express.static(path.join(__dirname, 'results')));
+app.use('/uploads', express.static(path.join(DATA_DIR, 'uploads')));
+app.use('/results', express.static(path.join(DATA_DIR, 'results')));
 
 // Serve frontend static files (relative to backend dir)
 const frontendDir = path.join(__dirname, '..', 'frontend');
@@ -22,14 +26,18 @@ if (fs.existsSync(frontendDir)) {
   app.use(express.static(frontendDir));
 }
 
-// Ensure directories exist
-['uploads', 'results'].forEach(dir => {
-  const p = path.join(__dirname, dir);
-  if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
-});
+// Ensure writable directories exist (silently skip on serverless if /tmp/ fails)
+try {
+  ['uploads', 'results'].forEach(dir => {
+    const p = path.join(DATA_DIR, dir);
+    if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+  });
+} catch (e) {
+  console.warn('[Server] Could not create data dirs (serverless ok):', e.message);
+}
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, 'uploads')),
+  destination: (req, file, cb) => cb(null, path.join(DATA_DIR, 'uploads')),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     cb(null, `${uuidv4()}${ext}`);
