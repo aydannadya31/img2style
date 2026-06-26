@@ -1,12 +1,17 @@
 services:
   - type: web
-    name: img2style
+    name: image-to-video
     env: docker
     region: oregon
     dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /api/status
     envVars:
-      - key: BFL_API_KEY
+      - key: HF_TOKEN
+        sync: false
+      - key: AGNES_API_KEY
+        sync: false
+      - key: MUAPI_API_KEY
         sync: false
       - key: PORT
         value: 10000
