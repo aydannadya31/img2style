@@ -21,10 +21,10 @@ class BFLProvider {
       const clothUrl = await this.uploadToTemp(clothImagePath);
 
       onProgress(30);
-      const taskId = await this.submitVTO(modelUrl, clothUrl);
+      const task = await this.submitVTO(modelUrl, clothUrl);
 
       onProgress(50);
-      const resultUrl = await this.pollForResult(taskId, function(p) {
+      const resultUrl = await this.pollForResult(task.polling_url, function(p) {
         onProgress(50 + Math.floor(p * 0.45));
       });
 
@@ -62,10 +62,10 @@ class BFLProvider {
   }
 
   async submitVTO(personImageUrl, garmentImageUrl) {
-    const resp = await axios.post(this.baseUrl + '/flux-vto', {
-      person_image_url: personImageUrl,
-      garment_image_url: garmentImageUrl,
-      prompt: 'A person wearing the garment from the reference image'
+    const resp = await axios.post(this.baseUrl + '/flux-tools/vto-v1', {
+      prompt: 'TRY-ON: The person of image 1 wearing the garments of image 2.',
+      person: personImageUrl,
+      garment: garmentImageUrl
     }, {
       headers: {
         'Content-Type': 'application/json',
@@ -77,34 +77,33 @@ class BFLProvider {
     if (!resp.data || !resp.data.id) {
       throw new Error('BFL API did not return a task ID');
     }
-    return resp.data.id;
+    return { id: resp.data.id, polling_url: resp.data.polling_url };
   }
 
-  async pollForResult(taskId, onProgress) {
+  async pollForResult(pollingUrl, onProgress) {
     for (let i = 0; i < 120; i++) {
       try {
-        const resp = await axios.get(this.baseUrl + '/get_result', {
-          params: { id: taskId },
+        const resp = await axios.get(pollingUrl, {
           headers: { 'x-key': this.apiKey },
           timeout: 10000
         });
 
         const data = resp.data;
-        if (data.status === 'ready') {
+        if (data.status === 'Ready') {
           const imageUrl = (data.result && (data.result.sample || data.result.image)) || (Array.isArray(data.result) && data.result[0]);
           if (imageUrl) return imageUrl;
           throw new Error('Result URL not found');
         }
 
-        if (data.status === 'error') {
+        if (data.status === 'Failed' || data.status === 'Error') {
           throw new Error(data.error || 'BFL API returned error');
         }
 
-        var progressMap = { pending: 0.1, processing: 0.5, generating: 0.7, finalizing: 0.9 };
+        const progressMap = { Pending: 0.1, Processing: 0.3, Generating: 0.5, Finalizing: 0.8 };
         onProgress(progressMap[data.status] || 0.3);
 
       } catch (error) {
-        if (error.message.indexOf('Result') >= 0 || error.message.indexOf('error') >= 0) throw error;
+        if (error.message.indexOf('Result') >= 0 || error.message.indexOf('error') >= 0 || error.message.indexOf('Error') >= 0 || error.message.indexOf('Failed') >= 0) throw error;
       }
 
       await new Promise(function(r) { setTimeout(r, 2000); });
