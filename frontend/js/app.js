@@ -1,158 +1,126 @@
-const state = { modelFile: null, clothFile: null, jobId: null, polling: false };
+const state = {
+  imageFile: null,
+  jobId: null,
+  polling: false,
+  currentProvider: null,
+  providers: { hf: false, agnes: false, muapi: false }
+};
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-const modelUpload = $('#modelUpload');
-const clothUpload = $('#clothUpload');
-const modelInput = $('#modelInput');
-const clothInput = $('#clothInput');
-const modelPreview = $('#modelPreview');
-const clothPreview = $('#clothPreview');
-const modelPlaceholder = $('#modelPlaceholder');
-const clothPlaceholder = $('#clothPlaceholder');
-const changeModelBtn = $('#changeModelBtn');
-const changeClothBtn = $('#changeClothBtn');
+// DOM refs
+const imageUpload = $('#imageUpload');
+const imageInput = $('#imageInput');
+const imagePreview = $('#imagePreview');
+const imagePlaceholder = $('#imagePlaceholder');
+const changeImageBtn = $('#changeImageBtn');
 const generateBtn = $('#generateBtn');
 const generateHint = $('#generateHint');
 const progressSection = $('#progressSection');
 const progressFill = $('#progressFill');
 const progressText = $('#progressText');
+const providerIndicator = $('#providerIndicator');
+const currentProviderLabel = $('#currentProviderLabel');
 const resultSection = $('#resultSection');
-const resultModel = $('#resultModel');
-const resultCloth = $('#resultCloth');
-const resultImage = $('#resultImage');
+const resultVideo = $('#resultVideo');
+const resultFallbackImg = $('#resultFallbackImg');
+const resultError = $('#resultError');
 const downloadBtn = $('#downloadBtn');
-const statusDot = $('#statusDot');
-const statusText = $('#statusText');
 const toast = $('#toast');
 const settingsBtn = $('#settingsBtn');
 const settingsModal = $('#settingsModal');
 const modalClose = $('#modalClose');
-const apiKeyInput = $('#apiKeyInput');
-const saveKeyBtn = $('#saveKeyBtn');
-const modelSamples = $('#modelSamples');
-const clothSamples = $('#clothSamples');
+const hfKey = $('#hfKey');
+const agnesKey = $('#agnesKey');
+const muapiKey = $('#muapiKey');
+const saveKeysBtn = $('#saveKeysBtn');
 
+// Helpers
 function showToast(msg, type) {
   toast.textContent = msg;
   toast.className = 'toast show ' + (type || '');
   setTimeout(() => toast.className = 'toast', 3000);
 }
 
-async function fetchStatus() {
-  try {
-    const r = await fetch('/api/status');
-    const d = await r.json();
-    if (d.bflEnabled) {
-      statusDot.className = 'status-dot connected';
-      statusText.textContent = 'Bagli';
-    } else {
-      statusDot.className = 'status-dot';
-      statusText.textContent = 'API Key Yok';
-    }
-  } catch { statusDot.className = 'status-dot'; statusText.textContent = 'Sunucu Yok'; }
+function setProviderStep(name, status) {
+  const step = document.querySelector(`.provider-step[data-provider="${name}"]`);
+  if (!step) return;
+  step.className = 'provider-step ' + status;
 }
 
-async function fetchSamples() {
+function resetProviderBar() {
+  $$('.provider-step').forEach(el => el.className = 'provider-step');
+}
+
+function updateProviderStatus(providerStatus) {
+  providerStatus.forEach(p => {
+    state.providers[p.name] = p.enabled;
+    if (p.enabled) {
+      setProviderStep(p.name, 'available');
+    }
+  });
+}
+
+// Status check
+async function fetchStatus() {
   try {
-    const r = await fetch('/api/samples');
+    const r = await fetch('/api/providers');
     const d = await r.json();
-    if (d.models) d.models.forEach(m => {
-      const btn = document.createElement('button');
-      btn.className = 'sample-btn';
-      btn.textContent = m.name;
-      btn.addEventListener('click', () => loadSample(m.url, 'model'));
-      modelSamples.appendChild(btn);
-    });
-    if (d.clothes) d.clothes.forEach(c => {
-      const btn = document.createElement('button');
-      btn.className = 'sample-btn';
-      btn.textContent = c.name;
-      btn.addEventListener('click', () => loadSample(c.url, 'cloth'));
-      clothSamples.appendChild(btn);
-    });
+    if (d.providers) updateProviderStatus(d.providers);
   } catch {}
 }
 
-async function loadSample(url, type) {
-  try {
-    const r = await fetch(url);
-    const blob = await r.blob();
-    const file = new File([blob], type + '.' + blob.type.split('/')[1], { type: blob.type });
-    if (type === 'model') {
-      state.modelFile = file;
-      modelPreview.src = URL.createObjectURL(file);
-      modelPreview.style.display = 'block';
-      modelPlaceholder.style.display = 'none';
-      changeModelBtn.style.display = 'flex';
-    } else {
-      state.clothFile = file;
-      clothPreview.src = URL.createObjectURL(file);
-      clothPreview.style.display = 'block';
-      clothPlaceholder.style.display = 'none';
-      changeClothBtn.style.display = 'flex';
-    }
-    updateGenerateBtn();
-  } catch { showToast('Ornek yuklenemedi', 'error'); }
-}
-
-function setupUpload(area, input, preview, placeholder, changeBtn, type) {
-  area.addEventListener('click', () => input.click());
-  input.addEventListener('change', () => {
-    const file = input.files[0];
+// Image upload
+function setupUpload() {
+  imageUpload.addEventListener('click', () => imageInput.click());
+  imageInput.addEventListener('change', () => {
+    const file = imageInput.files[0];
     if (!file) return;
-    if (type === 'model') state.modelFile = file;
-    else state.clothFile = file;
-    preview.src = URL.createObjectURL(file);
-    preview.style.display = 'block';
-    placeholder.style.display = 'none';
-    changeBtn.style.display = 'flex';
+    state.imageFile = file;
+    imagePreview.src = URL.createObjectURL(file);
+    imagePreview.style.display = 'block';
+    imagePlaceholder.style.display = 'none';
+    changeImageBtn.style.display = 'flex';
     updateGenerateBtn();
   });
-  changeBtn.addEventListener('click', (e) => { e.stopPropagation(); input.click(); });
-
-  area.addEventListener('dragover', (e) => { e.preventDefault(); area.classList.add('drag-over'); });
-  area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
-  area.addEventListener('drop', (e) => {
+  changeImageBtn.addEventListener('click', (e) => { e.stopPropagation(); imageInput.click(); });
+  imageUpload.addEventListener('dragover', (e) => { e.preventDefault(); imageUpload.classList.add('drag-over'); });
+  imageUpload.addEventListener('dragleave', () => imageUpload.classList.remove('drag-over'));
+  imageUpload.addEventListener('drop', (e) => {
     e.preventDefault();
-    area.classList.remove('drag-over');
+    imageUpload.classList.remove('drag-over');
     const file = e.dataTransfer.files[0];
     if (!file || !file.type.startsWith('image/')) return;
-    if (type === 'model') state.modelFile = file;
-    else state.clothFile = file;
-    preview.src = URL.createObjectURL(file);
-    preview.style.display = 'block';
-    placeholder.style.display = 'none';
-    changeBtn.style.display = 'flex';
+    state.imageFile = file;
+    imagePreview.src = URL.createObjectURL(file);
+    imagePreview.style.display = 'block';
+    imagePlaceholder.style.display = 'none';
+    changeImageBtn.style.display = 'flex';
     updateGenerateBtn();
   });
 }
 
-setupUpload(modelUpload, modelInput, modelPreview, modelPlaceholder, changeModelBtn, 'model');
-setupUpload(clothUpload, clothInput, clothPreview, clothPlaceholder, changeClothBtn, 'cloth');
-
 function updateGenerateBtn() {
-  if (state.modelFile && state.clothFile) {
-    generateBtn.disabled = false;
-    generateHint.textContent = 'Model ve kiyafet hazir';
-  } else {
-    generateBtn.disabled = true;
-    generateHint.textContent = 'Once model ve kiyafet yukleyin';
-  }
+  generateBtn.disabled = !state.imageFile;
+  generateHint.textContent = state.imageFile ? 'Gorsel hazir' : 'Once bir gorsel yukleyin';
 }
 
+// Generate
 generateBtn.addEventListener('click', async () => {
-  if (!state.modelFile || !state.clothFile) return;
+  if (!state.imageFile) return;
   const form = new FormData();
-  form.append('modelImage', state.modelFile);
-  form.append('clothImage', state.clothFile);
+  form.append('image', state.imageFile);
   generateBtn.disabled = true;
   generateBtn.querySelector('span').textContent = 'Basliyor...';
   progressSection.style.display = 'block';
   progressFill.style.width = '0%';
   progressText.textContent = 'Yukleniyor...';
   resultSection.style.display = 'none';
+  resultVideo.style.display = 'none';
+  resultFallbackImg.style.display = 'none';
+  resultError.style.display = 'none';
+  resetProviderBar();
   try {
     const r = await fetch('/api/generate', { method: 'POST', body: form });
     const d = await r.json();
@@ -172,8 +140,18 @@ async function pollJob() {
       const r = await fetch('/api/status/' + state.jobId);
       const d = await r.json();
       progressFill.style.width = d.progress + '%';
+      if (d.provider && d.provider !== state.currentProvider) {
+        state.currentProvider = d.provider;
+        currentProviderLabel.textContent = d.providerLabel || d.provider;
+        setProviderStep(d.provider, 'active');
+        $$('.provider-step').forEach(el => {
+          if (el.dataset.provider !== d.provider) el.classList.add('tried');
+        });
+      }
       if (d.status === 'completed') {
         state.polling = false;
+        state.currentProvider = null;
+        setProviderStep(d.provider, 'completed');
         progressText.textContent = 'Tamam!';
         setTimeout(() => {
           progressSection.style.display = 'none';
@@ -182,11 +160,18 @@ async function pollJob() {
         return;
       } else if (d.status === 'failed') {
         state.polling = false;
-        showToast(d.error || 'Hata olustu', 'error');
+        state.currentProvider = null;
+        let errMsg = d.error || 'Hata olustu';
+        if (d.errors && d.errors.length > 0) {
+          errMsg = d.errors.join(' → ');
+        }
+        showToast(errMsg, 'error');
+        progressText.textContent = 'Hata';
+        progressFill.style.width = '0%';
         resetGenerate();
         return;
       }
-      progressText.textContent = 'Isleniyor... %' + Math.round(d.progress);
+      progressText.textContent = d.progress > 0 ? 'Isleniyor... %' + Math.round(d.progress) : 'Basliyor...';
     } catch { showToast('Baglanti hatasi', 'error'); state.polling = false; resetGenerate(); return; }
     await new Promise(r => setTimeout(r, 2000));
   }
@@ -194,34 +179,60 @@ async function pollJob() {
 
 function showResult(url) {
   resultSection.style.display = 'block';
-  resultModel.src = modelPreview.src;
-  resultCloth.src = clothPreview.src;
-  resultImage.src = url;
-  downloadBtn.href = url;
+  const isVideo = url.match(/\.(mp4|webm|mov|avi)$/i);
+  if (isVideo) {
+    resultVideo.src = url;
+    resultVideo.style.display = 'block';
+    resultFallbackImg.style.display = 'none';
+    downloadBtn.href = url;
+  } else {
+    resultFallbackImg.src = url;
+    resultFallbackImg.style.display = 'block';
+    resultVideo.style.display = 'none';
+    downloadBtn.href = url;
+  }
   resetGenerate();
 }
 
 function resetGenerate() {
   generateBtn.disabled = false;
-  generateBtn.querySelector('span').textContent = 'Olustur';
+  generateBtn.querySelector('span').textContent = 'Video Olustur';
 }
 
-// Settings
+// Settings modal
 settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
 modalClose.addEventListener('click', () => settingsModal.style.display = 'none');
 settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.style.display = 'none'; });
 
-saveKeyBtn.addEventListener('click', async () => {
-  const key = apiKeyInput.value.trim();
-  if (!key) { showToast('API Key girin', 'error'); return; }
-  try {
-    const r = await fetch('/api/set-key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey: key }) });
-    const d = await r.json();
-    if (d.success) { showToast('API Key kaydedildi'); settingsModal.style.display = 'none'; fetchStatus(); }
-    else showToast('Hata', 'error');
-  } catch { showToast('Baglanti hatasi', 'error'); }
+saveKeysBtn.addEventListener('click', async () => {
+  const keys = [
+    { provider: 'hf', value: hfKey.value.trim(), name: 'HF' },
+    { provider: 'agnes', value: agnesKey.value.trim(), name: 'Agnes' },
+    { provider: 'muapi', value: muapiKey.value.trim(), name: 'Muapi' }
+  ];
+  let saved = 0;
+  for (const k of keys) {
+    if (!k.value) continue;
+    try {
+      const r = await fetch('/api/set-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: k.provider, apiKey: k.value })
+      });
+      const d = await r.json();
+      if (d.success) saved++;
+    } catch {}
+  }
+  if (saved > 0) {
+    showToast(saved + ' API key kaydedildi');
+    settingsModal.style.display = 'none';
+    hfKey.value = ''; agnesKey.value = ''; muapiKey.value = '';
+    fetchStatus();
+  } else {
+    showToast('Kaydedilecek key girilmedi', 'error');
+  }
 });
 
+// Init
+setupUpload();
 fetchStatus();
-fetchSamples();
-setInterval(fetchStatus, 15000);

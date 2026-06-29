@@ -9,7 +9,7 @@ const path = require('path');
 // Free tier: ~30 req/min with valid HF token
 // ============================================================
 
-const HF_API_BASE = 'https://api-inference.huggingface.co/models';
+const HF_API_BASE = 'https://router.huggingface.co/hf-inference/models';
 const MODEL = 'stabilityai/stable-video-diffusion-img2vid';
 
 class HFProvider {

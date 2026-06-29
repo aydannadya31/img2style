@@ -7,8 +7,8 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { HFProvider } = require('./providers/hf-provider');
-const { AgnesBridge } = require('./providers/agnes-bridge');
 const { MuapiBridge } = require('./providers/muapi-bridge');
+const { GradioProvider } = require('./providers/gradio-provider');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -68,17 +68,6 @@ function initHFProvider(apiKey) {
   return false;
 }
 
-function initAgnesProvider(apiKey) {
-  if (apiKey) {
-    providers.push({ name: 'agnes', label: 'Agnes AI', handler: new AgnesBridge(apiKey) });
-    providerLabels.agnes = 'Agnes AI';
-    console.log('[Server] Agnes AI Provider ready');
-    return true;
-  }
-  console.log('[Server] Agnes API Key not set');
-  return false;
-}
-
 function initMuapiProvider(apiKey) {
   if (apiKey) {
     providers.push({ name: 'muapi', label: 'HappyHorse', handler: new MuapiBridge(apiKey) });
@@ -90,8 +79,15 @@ function initMuapiProvider(apiKey) {
   return false;
 }
 
+function initGradioProvider() {
+  providers.push({ name: 'gradio', label: 'Gradio SVD (Ucretsiz)', handler: new GradioProvider() });
+  providerLabels.gradio = 'Gradio SVD (Ucretsiz)';
+  console.log('[Server] Gradio SVD Provider ready (no API key needed)');
+  return true;
+}
+
+initGradioProvider();
 initHFProvider(process.env.HF_TOKEN);
-initAgnesProvider(process.env.AGNES_API_KEY);
 initMuapiProvider(process.env.MUAPI_API_KEY);
 
 const jobs = new Map();
@@ -193,8 +189,8 @@ app.post('/api/set-key', (req, res) => {
   }
   let enabled = false;
   if (provider === 'hf') enabled = initHFProvider(apiKey);
-  else if (provider === 'agnes') enabled = initAgnesProvider(apiKey);
   else if (provider === 'muapi') enabled = initMuapiProvider(apiKey);
+  else if (provider === 'gradio') { initGradioProvider(); enabled = true; }
   res.json({ success: true, provider, enabled: !!enabled });
 });
 
@@ -224,8 +220,8 @@ app.get('/api/status', (req, res) => {
 app.get('/api/providers', (req, res) => {
   const providerStatus = [
     { name: 'hf', label: 'HuggingFace SVD', enabled: providers.some(p => p.name === 'hf'), available: !!process.env.HF_TOKEN },
-    { name: 'agnes', label: 'Agnes AI', enabled: providers.some(p => p.name === 'agnes'), available: !!process.env.AGNES_API_KEY },
-    { name: 'muapi', label: 'HappyHorse', enabled: providers.some(p => p.name === 'muapi'), available: !!process.env.MUAPI_API_KEY }
+    { name: 'muapi', label: 'HappyHorse', enabled: providers.some(p => p.name === 'muapi'), available: !!process.env.MUAPI_API_KEY },
+    { name: 'gradio', label: 'Gradio SVD (Ucretsiz)', enabled: providers.some(p => p.name === 'gradio') }
   ];
   res.json({ providers: providerStatus });
 });
